@@ -3,71 +3,84 @@
 #include <time.h>
 #include <math.h>
 
-struct Neuron {
+/* Define structures ---- */
+
+typedef struct Neuron {
 	float z;                // Sum of weighted inputs to neuron
     float a;                // Post activation function
     float delta;            // Aka node delta
     int num_weights;        // Number of weights connected to neurons in next layer
     struct Weight *weights; // Array of weights
-};
+} Neuron;
 
-struct Weight {
+typedef struct Weight {
     float w;
-};
+} Weight;
 
-struct Layer {
+typedef struct Layer {
 	int num_neurons;
 	struct Neuron *neurons; 
-};
+} Layer;
 
 struct Layer create_layer(int num_neurons, int num_neurons_next_layer);
 float sigmoid(float x);
 float sigmoid_derivative(float x);
 
-float inputs[2][4] = {
-                        {0, 1.0, 0, 1.0},
-                        {0, 0, 1.0, 1.0}
-                    };
+/* Define the training data ---- */
 
-float outputs[4] = {0, 1.0, 1.0, 1.0};
+const float X[2][4] =   {
+                            {0.0, 1.0, 0.0, 1.0},
+                            {0.0, 0.0, 1.0, 1.0}
+                        };
 
-int num_layers = 4;
-int num_neurons[] = {2, 3, 3, 1};
-int training_examples = 4;
-float learning_rate = 0.1;
-int epoch = 0;
-int epochs = 10000;
-float loss = 0.0;
+const float Y[4] =          {0.0, 1.0, 1.0, 1.0};
+
+const int NUM_TRAINING_EXAMPLES = 4; // Number of training examples in X
+
+/* Define neural network architecture ---- */
+
+const int NUM_LAYERS = 4; // Layers including the input and output layers
+const int NUM_NEURONS[] = {2, 3, 3, 1}; // Neurons per layer
+
+/* Define training hyperparameters ---- */
+
+const float LEARNING_RATE = 0.1;
+const int MAX_EPOCHS = 10000;
+
+/* Begin main program ---- */
 
 int main() {
 
     int i, j, k, m;
     
-    struct Layer layers[num_layers];
+    // Define an array of Layer objects
+    Layer layers[NUM_LAYERS];
     
-    // Create layers, each with neurons and respective output weights to next layer
-    for (i=0; i<num_layers; ++i)
-        layers[i] = create_layer(num_neurons[i], (i<num_layers-1)?num_neurons[i+1]:0);
+    // Create each layer with its neurons and their respective output weights to next layer
+    for (i=0; i<NUM_LAYERS; ++i)
+        layers[i] = create_layer(NUM_NEURONS[i], (i<NUM_LAYERS-1)?NUM_NEURONS[i+1]:0);
 
+    float loss = 0.0;
     float tmp = 0.0;
 
-    for (epoch=0; epoch < epochs; ++epoch) {
+    // Main training loop
+    for (int epoch=0; epoch<MAX_EPOCHS; ++epoch) {
         
         loss = 0.0;
 
-        for (m=0; m<training_examples; ++m) {
+        for (m=0; m<NUM_TRAINING_EXAMPLES; ++m) {
             
             printf("*** Epoch %d, training example %d ***\n", epoch, m);
         
             // Compute forward pass for this training example
-            for (i=0; i<num_layers; ++i) {
+            for (i=0; i<NUM_LAYERS; ++i) {
                 for (j=0; j<layers[i].num_neurons; ++j) {
 
                     // Process neuron j in layer i
                     
                     if (i == 0) {
                         // Input layer; output a is the "input" to the network
-                        layers[i].neurons[j].a = inputs[j][m];
+                        layers[i].neurons[j].a = X[j][m];
                     } else {
                         // Hidden and output layers
                         tmp = 0.0;
@@ -81,16 +94,16 @@ int main() {
             }
 
             // Compute loss for this training example
-            loss += 0.5 * pow(layers[num_layers-1].neurons[0].a - outputs[m], 2); // TODO: Hardcoded [0], assumes one output only
+            loss += 0.5 * pow(layers[NUM_LAYERS-1].neurons[0].a - Y[m], 2); // TODO: Hardcoded [0], assumes one output only
 
             // Compute node deltas dL/dz
-            for (i=num_layers-1; i>=0; --i) {
+            for (i=NUM_LAYERS-1; i>=0; --i) {
                 // Start at last layer
                 for (j=0; j<layers[i].num_neurons; ++j) {
                     
-                    if (i == num_layers-1) {
+                    if (i == NUM_LAYERS-1) {
                         // Last layer
-                        layers[i].neurons[j].delta = sigmoid_derivative(layers[i].neurons[j].z) * (layers[i].neurons[j].a - outputs[m]); // TODO: Tidy up here for multiple outputs
+                        layers[i].neurons[j].delta = sigmoid_derivative(layers[i].neurons[j].z) * (layers[i].neurons[j].a - Y[m]); // TODO: Tidy up here for multiple outputs
                     } else {
                         // Hidden and input layers
                         // Multiple output weights for this neuron by node deltas in next layer to right
@@ -105,16 +118,16 @@ int main() {
             }
             
             // Compute weight deltas dz/dw and gradient descent to weights using dL/dz.dz/dw
-            for (i=0; i<num_layers; ++i) {
+            for (i=0; i<NUM_LAYERS; ++i) {
                 for (j=0; j<layers[i].num_neurons; ++j) {
                     for (k=0; k<layers[i].neurons[j].num_weights; ++k) {
-                        layers[i].neurons[j].weights[k].w = layers[i].neurons[j].weights[k].w - (learning_rate * layers[i].neurons[j].a * layers[i+1].neurons[k].delta);
+                        layers[i].neurons[j].weights[k].w = layers[i].neurons[j].weights[k].w - (LEARNING_RATE * layers[i].neurons[j].a * layers[i+1].neurons[k].delta);
                     }
                 }
             }
 
             // Display network info
-            for (i=0; i<num_layers; ++i) {
+            for (i=0; i<NUM_LAYERS; ++i) {
                 printf("Layer %d:\n", i);
                 for (j=0; j<layers[i].num_neurons; ++j) {
                     printf("\tNeuron %d | z: %f a: %f delta: %f weights out: %d [ ", j+1, layers[i].neurons[j].z, layers[i].neurons[j].a, layers[i].neurons[j].delta, layers[i].neurons[j].num_weights);
@@ -160,7 +173,7 @@ struct Layer create_layer(int num_neurons, int num_neurons_next_layer) {
         layer.neurons[i].num_weights = num_neurons_next_layer;
 
         // Allocate memory for an array of weights, ready to store each weight 
-        layer.neurons[i].weights = (struct Weight *) malloc(num_neurons_next_layer * sizeof(struct Weight));
+        layer.neurons[i].weights = (Weight *) malloc(num_neurons_next_layer * sizeof(Weight));
 
         // Create weights for each neuron in this layer
         for (int j=0; j<num_neurons_next_layer; ++j) {
