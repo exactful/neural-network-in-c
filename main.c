@@ -6,7 +6,7 @@
 /* Define structures ---- */
 
 typedef struct Neuron {
-	float z;                // Sum of weighted inputs to neuron
+    float z;                // Sum of weighted inputs to neuron
     float a;                // Post activation function
     float delta;            // Aka node delta
     int num_weights;        // Number of weights connected to neurons in next layer
@@ -22,9 +22,12 @@ typedef struct Layer {
 	struct Neuron *neurons; 
 } Layer;
 
+/* Declare function prototypes */
+
 struct Layer create_layer(int num_neurons, int num_neurons_next_layer);
 float sigmoid(float x);
 float sigmoid_derivative(float x);
+void do_forward_propagation(Layer layers[], int m);
 
 /* Define the training data ---- */
 
@@ -72,26 +75,8 @@ int main() {
             
             printf("*** Epoch %d, training example %d ***\n", epoch, m);
         
-            // Compute forward pass for this training example
-            for (i=0; i<NUM_LAYERS; ++i) {
-                for (j=0; j<layers[i].num_neurons; ++j) {
-
-                    // Process neuron j in layer i
-                    
-                    if (i == 0) {
-                        // Input layer; output a is the "input" to the network
-                        layers[i].neurons[j].a = X[j][m];
-                    } else {
-                        // Hidden and output layers
-                        tmp = 0.0;
-                        for (k=0; k<layers[i-1].num_neurons; ++k)
-                            tmp += layers[i-1].neurons[k].a * layers[i-1].neurons[k].weights[j].w; // Sum outputs and weights from previous layer
-
-                        layers[i].neurons[j].z = tmp;
-                        layers[i].neurons[j].a = sigmoid(layers[i].neurons[j].z);    
-                    }
-                }
-            }
+            // Compute forward pass for training example m
+            do_forward_propagation(layers, m);
 
             // Compute loss for this training example
             loss += 0.5 * pow(layers[NUM_LAYERS-1].neurons[0].a - Y[m], 2); // TODO: Hardcoded [0], assumes one output only
@@ -196,4 +181,30 @@ float sigmoid(float x) {
 // Activation derivative function
 float sigmoid_derivative(float x) {
     return (1.0 - sigmoid(x)) * sigmoid(x);
+}
+
+/* Compute forward propagation using training example m */
+void do_forward_propagation(Layer layers[], int m) {
+
+    // For layer i
+    for (int i=0; i<NUM_LAYERS; ++i) {
+
+        // For neuron j in layer i
+        for (int j=0; j<layers[i].num_neurons; ++j) {
+            
+            if (i == 0) {
+                // Input layer; neuron output a is the "input" to the network
+                layers[i].neurons[j].a = X[j][m];
+            } else {
+                // Hidden and output layers
+                float weighted_input_to_neuron = 0.0;
+                for (int k=0; k<layers[i-1].num_neurons; ++k)
+                    // Compute weighted inputs coming into neuron j from neurons in previous layer
+                    weighted_input_to_neuron += layers[i-1].neurons[k].a * layers[i-1].neurons[k].weights[j].w; // Sum outputs and weights from previous layer
+
+                layers[i].neurons[j].z = weighted_input_to_neuron;
+                layers[i].neurons[j].a = sigmoid(weighted_input_to_neuron);    
+            }
+        }
+    }
 }
