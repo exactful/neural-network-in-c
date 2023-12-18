@@ -27,6 +27,7 @@ typedef struct Layer {
 
 struct Layer create_layer(int num_neurons, int num_neurons_next_layer);
 void load_file_data(const char filename[], float max_value, int max_row_length, int rows, int cols, float arr[rows][cols]);
+float randn();
 float sigmoid(float x);
 float sigmoid_derivative(float x);
 void do_forward_propagation(Layer layers[], int m);
@@ -55,6 +56,7 @@ float X[NUM_INPUTS][NUM_TRAINING_EXAMPLES]; // Used to store input data
 float Y[NUM_OUTPUTS][NUM_TRAINING_EXAMPLES]; // Used to store output data
 
 /* Define verbose or not; 1 = display additional info, 0 = quiet */
+
 const int VERBOSE = 0; //
 
 /* Define neural network architecture ---- */
@@ -72,6 +74,9 @@ const int MAX_EPOCHS = 10000;
 int main() {
 
     int i, j, k, m;
+
+    // Seed the random number generator with the current time
+    srand((unsigned int)time(NULL));
 
     // Load training data into X and Y arrays
     load_file_data(INPUT_FILE, INPUT_FILE_MAX_VALUE, INPUT_FILE_MAX_ROW_LENGTH, NUM_INPUTS, NUM_TRAINING_EXAMPLES, X);
@@ -135,9 +140,6 @@ int main() {
 
 struct Layer create_layer(int num_neurons, int num_neurons_next_layer) {
 
-    // Seed the random number generator with the current time
-    srand((unsigned int)time(NULL));
-
 	struct Layer layer;
 
 	layer.num_neurons = num_neurons;
@@ -164,7 +166,7 @@ struct Layer create_layer(int num_neurons, int num_neurons_next_layer) {
 
             struct Weight weight;
             layer.neurons[i].weights[j] = weight;
-            layer.neurons[i].weights[j].w = (float)rand() / RAND_MAX; // Between 0 and 1
+            layer.neurons[i].weights[j].w = randn(); // Initialise weights using random numbers between 0 and 1 from a normal distribution
         }
     }
     
@@ -197,6 +199,13 @@ void load_file_data(const char filename[], float max_value, int max_row_length, 
         row++;
         col = 0;
     }
+}
+
+// Generate a random number from a normal distribution
+float randn() {
+    float u1 = rand() / (float)RAND_MAX;
+    float u2 = rand() / (float)RAND_MAX;
+    return sqrt(-2.0 * log(u1)) * cos(2.0 * M_PI * u2);
 }
 
 // Activiation function
