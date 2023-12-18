@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
+#include <string.h>
 
 /* Define structures ---- */
 
@@ -25,6 +26,7 @@ typedef struct Layer {
 /* Declare function prototypes */
 
 struct Layer create_layer(int num_neurons, int num_neurons_next_layer);
+void load_file_data(const char filename[], float max_value, int max_row_length, int rows, int cols, float arr[rows][cols]);
 float sigmoid(float x);
 float sigmoid_derivative(float x);
 void do_forward_propagation(Layer layers[], int m);
@@ -34,22 +36,31 @@ void display_weights(Layer layers[], int m);
 
 /* Define the training data ---- */
 
-const float X[2][4] =   {
-                            {0.0, 1.0, 0.0, 1.0},
-                            {0.0, 0.0, 1.0, 1.0}
-                        };
+const char INPUT_FILE[] = "logic-gate-input.csv";
+const char OUTPUT_FILE[] = "logic-gate-output.csv";
 
-const float Y[4] =          {0.0, 1.0, 1.0, 1.0};
+const float INPUT_FILE_MAX_VALUE = 1.0; // Used to normalise data
+const int INPUT_FILE_MAX_ROW_LENGTH = 20;
 
-const int NUM_TRAINING_EXAMPLES = 4; // Number of training examples in X
+const float OUTPUT_FILE_MAX_VALUE = 1.0; // Used to normalise data
+const int OUTPUT_FILE_MAX_ROW_LENGTH = 20;
+
+const char DELIMITER[] = ",";
+
+const int NUM_INPUTS = 2;
+const int NUM_OUTPUTS = 1;
+const int NUM_TRAINING_EXAMPLES = 4;
+
+float X[NUM_INPUTS][NUM_TRAINING_EXAMPLES]; // Used to store input data
+float Y[NUM_OUTPUTS][NUM_TRAINING_EXAMPLES]; // Used to store output data
 
 /* Define verbose or not; 1 = display additional info, 0 = quiet */
 const int VERBOSE = 0; //
 
 /* Define neural network architecture ---- */
 
-const int NUM_LAYERS = 4; // Layers including the input and output layers
-const int NUM_NEURONS[] = {2, 3, 3, 1}; // Neurons per layer
+const int NUM_LAYERS = 3; // Layers including the input and output layers
+const int NUM_NEURONS[] = {2, 3, 1}; // Neurons per layer
 
 /* Define training hyperparameters ---- */
 
@@ -61,7 +72,11 @@ const int MAX_EPOCHS = 10000;
 int main() {
 
     int i, j, k, m;
-    
+
+    // Load training data into X and Y arrays
+    load_file_data(INPUT_FILE, INPUT_FILE_MAX_VALUE, INPUT_FILE_MAX_ROW_LENGTH, NUM_INPUTS, NUM_TRAINING_EXAMPLES, X);
+    load_file_data(OUTPUT_FILE, OUTPUT_FILE_MAX_VALUE, OUTPUT_FILE_MAX_ROW_LENGTH, NUM_OUTPUTS, NUM_TRAINING_EXAMPLES, Y);
+
     // Define an array of Layer objects
     Layer layers[NUM_LAYERS];
     
@@ -83,7 +98,7 @@ int main() {
             do_forward_propagation(layers, m);
 
             // Compute loss
-            loss += 0.5 * pow(layers[NUM_LAYERS-1].neurons[0].a - Y[m], 2); // TODO: Hardcoded [0], assumes one output only
+            loss += 0.5 * pow(layers[NUM_LAYERS-1].neurons[0].a - Y[0][m], 2); // TODO: Hardcoded [0], assumes one output only
 
             /* Compute node deltas dL/dz */
             compute_node_deltas(layers, m);
@@ -114,7 +129,7 @@ int main() {
         // Compute forward pass
         do_forward_propagation(layers, m);
 
-        printf("x1: %f x2: %f y: %f prediction: %f\n", X[0][m], X[1][m], Y[m], layers[NUM_LAYERS-1].neurons[0].a);
+        printf("x1: %f x2: %f y: %f prediction: %f\n", X[0][m], X[1][m], Y[0][m], layers[NUM_LAYERS-1].neurons[0].a);
     }
 }
 
@@ -154,6 +169,34 @@ struct Layer create_layer(int num_neurons, int num_neurons_next_layer) {
     }
     
 	return layer;
+}
+
+// Load data from file
+void load_file_data(const char filename[], float max_value, int max_row_length, int rows, int cols, float arr[rows][cols]) {
+    
+    FILE *file_ptr = fopen(filename, "r");
+    
+    char row_buffer[max_row_length];
+    char *token;
+
+    int row;
+    int col;
+
+    row = col = 0;
+
+    while (fscanf(file_ptr, "%s", row_buffer) == 1) {
+        
+        token = strtok(row_buffer, DELIMITER);
+        
+        while (token != NULL) {
+            printf("%s %d %d\n", token, row, col);
+            arr[row][col++] = atof(token) / max_value;
+            token = strtok(NULL, DELIMITER);
+        }
+
+        row++;
+        col = 0;
+    }
 }
 
 // Activiation function
@@ -203,7 +246,7 @@ void compute_node_deltas(Layer layers[], int m) {
             
             if (i == NUM_LAYERS-1) {
                 // Last layer
-                layers[i].neurons[j].delta = sigmoid_derivative(layers[i].neurons[j].z) * (layers[i].neurons[j].a - Y[m]); // TODO: Tidy up here for multiple outputs
+                layers[i].neurons[j].delta = sigmoid_derivative(layers[i].neurons[j].z) * (layers[i].neurons[j].a - Y[0][m]); // TODO: Tidy up here for multiple outputs
             } else {
                 // Hidden and input layers
                 // Multiple output weights for this neuron by node deltas in next layer to right
