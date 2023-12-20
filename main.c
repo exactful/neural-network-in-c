@@ -35,6 +35,10 @@ void compute_node_deltas(Layer layers[], int m);
 void update_weights(Layer layers[], int m);
 void display_weights(Layer layers[], int m);
 
+/* Define verbose or not; 1 = display additional info, 0 = quiet */
+
+const int VERBOSE = 0; //
+
 /* Define the training data ---- */
 
 const char INPUT_FILE[] = "logic-gate-input.csv";
@@ -49,24 +53,20 @@ const int OUTPUT_FILE_MAX_ROW_LENGTH = 20;
 const char DELIMITER[] = ",";
 
 const int NUM_INPUTS = 2;
-const int NUM_OUTPUTS = 1;
+const int NUM_OUTPUTS = 2;
 const int NUM_TRAINING_EXAMPLES = 4;
 
 float X[NUM_INPUTS][NUM_TRAINING_EXAMPLES]; // Used to store input data
 float Y[NUM_OUTPUTS][NUM_TRAINING_EXAMPLES]; // Used to store output data
 
-/* Define verbose or not; 1 = display additional info, 0 = quiet */
-
-const int VERBOSE = 0; //
-
 /* Define neural network architecture ---- */
 
 const int NUM_LAYERS = 3; // Layers including the input and output layers
-const int NUM_NEURONS[] = {2, 3, 1}; // Neurons per layer
+const int NUM_NEURONS[] = {NUM_INPUTS, 3, NUM_OUTPUTS}; // Neurons per layer
 
 /* Define training hyperparameters ---- */
 
-const float LEARNING_RATE = 0.1;
+const float LEARNING_RATE = 1.0;
 const int MAX_EPOCHS = 10000;
 
 /* Begin main program ---- */
@@ -102,8 +102,9 @@ int main() {
             // Compute forward pass
             do_forward_propagation(layers, m);
 
-            // Compute loss
-            loss += 0.5 * pow(layers[NUM_LAYERS-1].neurons[0].a - Y[0][m], 2); // TODO: Hardcoded [0], assumes one output only
+            // Append MSE for current training example
+            for (i=0; i<layers[NUM_LAYERS-1].num_neurons; ++i)
+                loss += pow(layers[NUM_LAYERS-1].neurons[i].a - Y[i][m], 2);
 
             /* Compute node deltas dL/dz */
             compute_node_deltas(layers, m);
@@ -112,12 +113,8 @@ int main() {
             update_weights(layers, m);
             
             /* Display weights */
-            display_weights(layers, m);
-
-            // TODO: Check logic + Add comments
-            // TODO: Check randomisation logic
-            // TODO: Add support for multiple outputs: y1, y2 etc... 
-
+            if (VERBOSE == 1)
+                display_weights(layers, m);
         }
 
         // Calculate average loss for this epoch
@@ -134,7 +131,17 @@ int main() {
         // Compute forward pass
         do_forward_propagation(layers, m);
 
-        printf("x1: %f x2: %f y: %f prediction: %f\n", X[0][m], X[1][m], Y[0][m], layers[NUM_LAYERS-1].neurons[0].a);
+        // Display input, output and predicted values
+        for (i=0; i<NUM_INPUTS; ++i)
+            printf("x%d: %f ", i+1, X[i][m]);
+    
+        for (i=0; i<NUM_OUTPUTS; ++i)
+            printf("y%d: %f ", i+1, Y[i][m]);
+        
+        for (i=0; i<NUM_OUTPUTS; ++i)
+            printf("pred%d: %f ", i+1, layers[NUM_LAYERS-1].neurons[i].a);
+
+        printf("\n");
     }
 }
 
@@ -173,7 +180,7 @@ struct Layer create_layer(int num_neurons, int num_neurons_next_layer) {
 	return layer;
 }
 
-// Load data from file
+/* Load data from file */
 void load_file_data(const char filename[], float max_value, int max_row_length, int rows, int cols, float arr[rows][cols]) {
     
     FILE *file_ptr = fopen(filename, "r");
@@ -191,7 +198,6 @@ void load_file_data(const char filename[], float max_value, int max_row_length, 
         token = strtok(row_buffer, DELIMITER);
         
         while (token != NULL) {
-            printf("%s %d %d\n", token, row, col);
             arr[row][col++] = atof(token) / max_value;
             token = strtok(NULL, DELIMITER);
         }
@@ -201,19 +207,19 @@ void load_file_data(const char filename[], float max_value, int max_row_length, 
     }
 }
 
-// Generate a random number from a normal distribution
+/* Generate a random number from a normal distribution */
 float randn() {
     float u1 = rand() / (float)RAND_MAX;
     float u2 = rand() / (float)RAND_MAX;
     return sqrt(-2.0 * log(u1)) * cos(2.0 * M_PI * u2);
 }
 
-// Activiation function
+/* Activiation function */
 float sigmoid(float x) {
     return 1.0 / (1.0 + exp(-x));
 }
 
-// Activation derivative function
+/* Activation derivative function */
 float sigmoid_derivative(float x) {
     return (1.0 - sigmoid(x)) * sigmoid(x);
 }
@@ -255,7 +261,7 @@ void compute_node_deltas(Layer layers[], int m) {
             
             if (i == NUM_LAYERS-1) {
                 // Last layer
-                layers[i].neurons[j].delta = sigmoid_derivative(layers[i].neurons[j].z) * (layers[i].neurons[j].a - Y[0][m]); // TODO: Tidy up here for multiple outputs
+                layers[i].neurons[j].delta = sigmoid_derivative(layers[i].neurons[j].z) * (layers[i].neurons[j].a - Y[j][m]);
             } else {
                 // Hidden and input layers
                 // Multiple output weights for this neuron by node deltas in next layer to right
@@ -269,6 +275,7 @@ void compute_node_deltas(Layer layers[], int m) {
     }
 }
 
+/* Update weights */
 void update_weights(Layer layers[], int m) {
 
     // Compute weight deltas dz/dw and gradient descent to weights using dL/dz.dz/dw
@@ -287,20 +294,18 @@ void update_weights(Layer layers[], int m) {
 /* Display neural network weights for training example m*/
 void display_weights(Layer layers[], int m) {
 
-    if (VERBOSE == 1) {
-        printf("Training example %d\n", m);
-        // For layer i
-        for (int i=0; i<NUM_LAYERS; ++i) {
-            printf("Layer %d:\n", i);
-            // For neuron j in layer i
-            for (int j=0; j<layers[i].num_neurons; ++j) {
-                printf("\tNeuron %d | z: %f a: %f delta: %f weights out: %d [ ", j+1, layers[i].neurons[j].z, layers[i].neurons[j].a, layers[i].neurons[j].delta, layers[i].neurons[j].num_weights);
-                // For weight k in neuron j in layer i
-                for (int k=0; k<layers[i].neurons[j].num_weights; ++k) {
-                    printf("w%d-%d: %f ", j+1, k+1, layers[i].neurons[j].weights[k].w);
-                }
-                printf("]\n");
+    printf("Training example %d\n", m);
+    // For layer i
+    for (int i=0; i<NUM_LAYERS; ++i) {
+        printf("Layer %d:\n", i);
+        // For neuron j in layer i
+        for (int j=0; j<layers[i].num_neurons; ++j) {
+            printf("\tNeuron %d | z: %f a: %f delta: %f weights out: %d [ ", j+1, layers[i].neurons[j].z, layers[i].neurons[j].a, layers[i].neurons[j].delta, layers[i].neurons[j].num_weights);
+            // For weight k in neuron j in layer i
+            for (int k=0; k<layers[i].neurons[j].num_weights; ++k) {
+                printf("w%d-%d: %f ", j+1, k+1, layers[i].neurons[j].weights[k].w);
             }
+            printf("]\n");
         }
     }
 }
