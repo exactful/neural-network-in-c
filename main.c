@@ -32,8 +32,10 @@ float sigmoid(float x);
 float sigmoid_derivative(float x);
 void do_forward_propagation(Layer layers[], int m);
 void compute_node_deltas(Layer layers[], int m);
-void update_weights(Layer layers[], int m);
+void update_weights(Layer layers[]);
 void display_weights(Layer layers[], int m);
+void display_predictions(Layer layers[]);
+void display_confusion_matrix(Layer layers[]);
 
 /* Define verbose or not; 1 = display additional info, 0 = quiet */
 
@@ -41,33 +43,33 @@ const int VERBOSE = 0; //
 
 /* Define the training data ---- */
 
-const char INPUT_FILE[] = "logic-gate-input.csv";
-const char OUTPUT_FILE[] = "logic-gate-output.csv";
+const char INPUT_FILE[] = "mnist-input.csv";
+const char OUTPUT_FILE[] = "mnist-output.csv";
 
-const float INPUT_FILE_MAX_VALUE = 1.0; // Used to normalise data
-const int INPUT_FILE_MAX_ROW_LENGTH = 20;
+const float INPUT_FILE_MAX_VALUE = 16.0; // Used to normalise data
+const int INPUT_FILE_MAX_ROW_LENGTH = 10000;
 
 const float OUTPUT_FILE_MAX_VALUE = 1.0; // Used to normalise data
-const int OUTPUT_FILE_MAX_ROW_LENGTH = 20;
+const int OUTPUT_FILE_MAX_ROW_LENGTH = 10000;
 
 const char DELIMITER[] = ",";
 
-const int NUM_INPUTS = 2;
-const int NUM_OUTPUTS = 2;
-const int NUM_TRAINING_EXAMPLES = 4;
+const int NUM_INPUTS = 64;
+const int NUM_OUTPUTS = 10;
+const int NUM_TRAINING_EXAMPLES = 1797;
 
 float X[NUM_INPUTS][NUM_TRAINING_EXAMPLES]; // Used to store input data
 float Y[NUM_OUTPUTS][NUM_TRAINING_EXAMPLES]; // Used to store output data
 
 /* Define neural network architecture ---- */
 
-const int NUM_LAYERS = 3; // Layers including the input and output layers
-const int NUM_NEURONS[] = {NUM_INPUTS, 3, NUM_OUTPUTS}; // Neurons per layer
+const int NUM_LAYERS = 4; // Layers including the input and output layers
+const int NUM_NEURONS[] = {NUM_INPUTS, 32, 16, NUM_OUTPUTS}; // Neurons per layer
 
 /* Define training hyperparameters ---- */
 
-const float LEARNING_RATE = 1.0;
-const int MAX_EPOCHS = 10000;
+const float LEARNING_RATE = 0.01;
+const int MAX_EPOCHS = 5000;
 
 /* Begin main program ---- */
 
@@ -106,13 +108,13 @@ int main() {
             for (i=0; i<layers[NUM_LAYERS-1].num_neurons; ++i)
                 loss += pow(layers[NUM_LAYERS-1].neurons[i].a - Y[i][m], 2);
 
-            /* Compute node deltas dL/dz */
+            // Compute node deltas dL/dz
             compute_node_deltas(layers, m);
 
-            /* Update weights */
-            update_weights(layers, m);
+            // Update weights
+            update_weights(layers);
             
-            /* Display weights */
+            // Display weights
             if (VERBOSE == 1)
                 display_weights(layers, m);
         }
@@ -125,24 +127,8 @@ int main() {
             printf("Epoch %4.0d Loss %8.8f\n", epoch, loss);
     }
 
-    // Predict using input data
-    for (m=0; m<NUM_TRAINING_EXAMPLES; ++m) {
-            
-        // Compute forward pass
-        do_forward_propagation(layers, m);
-
-        // Display input, output and predicted values
-        for (i=0; i<NUM_INPUTS; ++i)
-            printf("x%d: %f ", i+1, X[i][m]);
-    
-        for (i=0; i<NUM_OUTPUTS; ++i)
-            printf("y%d: %f ", i+1, Y[i][m]);
-        
-        for (i=0; i<NUM_OUTPUTS; ++i)
-            printf("pred%d: %f ", i+1, layers[NUM_LAYERS-1].neurons[i].a);
-
-        printf("\n");
-    }
+    display_predictions(layers);
+    display_confusion_matrix(layers);
 }
 
 struct Layer create_layer(int num_neurons, int num_neurons_next_layer) {
@@ -276,7 +262,7 @@ void compute_node_deltas(Layer layers[], int m) {
 }
 
 /* Update weights */
-void update_weights(Layer layers[], int m) {
+void update_weights(Layer layers[]) {
 
     // Compute weight deltas dz/dw and gradient descent to weights using dL/dz.dz/dw
     // For layer i
@@ -307,5 +293,76 @@ void display_weights(Layer layers[], int m) {
             }
             printf("]\n");
         }
+    }
+}
+
+/* Display predictions */
+void display_predictions(Layer layers[]) {
+    
+    int m, i;
+
+    // Predict using input data
+    for (m=0; m<NUM_TRAINING_EXAMPLES; ++m) {
+            
+        // Compute forward pass
+        do_forward_propagation(layers, m);
+
+        printf("Example %d: ", m+1);
+
+        // Display input, output and predicted values
+        for (i=0; i<NUM_INPUTS; ++i)
+            printf("x%d: %f ", i+1, X[i][m]);
+    
+        for (i=0; i<NUM_OUTPUTS; ++i)
+            printf("y%d: %f ", i+1, Y[i][m]);
+        
+        for (i=0; i<NUM_OUTPUTS; ++i)
+            printf("pred%d: %f ", i+1, layers[NUM_LAYERS-1].neurons[i].a);
+
+        printf("\n");
+    }
+}
+
+/* Display confusion matrix */
+void display_confusion_matrix(Layer layers[]) {
+
+    int confusion_matrix[NUM_OUTPUTS][NUM_OUTPUTS] = {0};
+    int m, i, j;
+
+    // Predict using input data
+    for (m=0; m<NUM_TRAINING_EXAMPLES; ++m) {
+            
+        // Compute forward pass
+        do_forward_propagation(layers, m);
+
+        float max_y_value = 0;
+        int max_y_index = 0;
+
+        for (i=0; i<NUM_OUTPUTS; ++i) {
+            if (Y[i][m] > max_y_value) {
+                max_y_value = Y[i][m];
+                max_y_index = i;
+            }
+        }
+        
+        float max_pred_value = 0;
+        int max_pred_index = 0;
+
+        for (i=0; i<NUM_OUTPUTS; ++i) {
+            if (layers[NUM_LAYERS-1].neurons[i].a > max_pred_value) {
+                max_pred_value = layers[NUM_LAYERS-1].neurons[i].a;
+                max_pred_index = i;
+            }
+        }
+        confusion_matrix[max_y_index][max_pred_index]++;
+    }
+
+    // Display confusion matrix
+    printf("\nConfusion matrix, actual (vertical) vs predicted (horizontal):\n");
+    for (i=0; i<NUM_OUTPUTS; ++i) {
+        for (j=0; j<NUM_OUTPUTS; ++j) {
+            printf("%d ", confusion_matrix[i][j]);
+        }
+        printf("\n");
     }
 }
