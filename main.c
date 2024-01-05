@@ -127,7 +127,7 @@ int main() {
             printf("Epoch %4.0d Loss %8.8f\n", epoch, loss);
     }
 
-    display_predictions(layers);
+    //display_predictions(layers);
     display_confusion_matrix(layers);
 }
 
