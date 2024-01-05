@@ -1,4 +1,4 @@
-# Neural Network Training Implementation
+# Neural network in C
 
 This repository contains a C program for training a neural network using backpropagation on the MNIST dataset. The code is designed to implement forward propagation, backward propagation, weight updates, and performance evaluation through confusion matrix generation.
 
