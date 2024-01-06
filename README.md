@@ -25,11 +25,17 @@ The main components of the code include:
 - `display_predictions()`: Displays input, output, and predicted values
 - `display_confusion_matrix()`: Generates and displays the confusion matrix
 
-## Architecture
+## Network architecture
 
 - Input layer: 64 inputs (based on 8x8 images)
 - 2 hidden layers: 32 nodes and 16 nodes
 - Output layer: 10 outputs (numbers 0-9 one hot encoded)
+
+![Neural network architecture](nn.png)
+
+## Node architecture
+
+![Neural network architecture](neuron.png)
 
 ## Hyperparameters
 
